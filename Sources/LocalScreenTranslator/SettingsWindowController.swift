@@ -9,12 +9,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTextFieldDel
     private var translatePopup: NSPopUpButton?
     private var screenshotPopup: NSPopUpButton?
     private var inputTranslationPopup: NSPopUpButton?
-    private var translationEnginePopup: NSPopUpButton?
     private var baseURLField: NSTextField?
-    private var modelPopup: NSPopUpButton?
+    private var modelField: NSTextField?
     private var apiKeyField: NSSecureTextField?
     private var timeoutField: NSTextField?
-    private var fallbackCheckbox: NSButton?
     private var loginItemCheckbox: NSButton?
 
     init(settings: AppSettings, onHotKeysChanged: @escaping () -> Void) {
@@ -30,7 +28,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTextFieldDel
             return
         }
 
-        let size = NSSize(width: 500, height: 520)
+        let size = NSSize(width: 500, height: 468)
         let window = NSWindow(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.titled, .closable],
@@ -55,68 +53,54 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTextFieldDel
     private func makeContentView(size: NSSize) -> NSView {
         let contentView = NSView(frame: NSRect(origin: .zero, size: size))
 
-        addSectionLabel("快捷键", at: NSPoint(x: 28, y: 474), to: contentView)
+        addSectionLabel("快捷键", at: NSPoint(x: 28, y: 422), to: contentView)
 
-        addLabel("截图翻译快捷键", at: NSPoint(x: 28, y: 434), to: contentView)
-        let translatePopup = makeShortcutPopup(frame: NSRect(x: 180, y: 428, width: 280, height: 32))
+        addLabel("截图翻译快捷键", at: NSPoint(x: 28, y: 382), to: contentView)
+        let translatePopup = makeShortcutPopup(frame: NSRect(x: 180, y: 376, width: 280, height: 32))
         translatePopup.target = self
         translatePopup.action = #selector(shortcutChanged)
         contentView.addSubview(translatePopup)
         self.translatePopup = translatePopup
 
-        addLabel("截图快捷键", at: NSPoint(x: 28, y: 388), to: contentView)
-        let screenshotPopup = makeShortcutPopup(frame: NSRect(x: 180, y: 382, width: 280, height: 32))
+        addLabel("截图快捷键", at: NSPoint(x: 28, y: 336), to: contentView)
+        let screenshotPopup = makeShortcutPopup(frame: NSRect(x: 180, y: 330, width: 280, height: 32))
         screenshotPopup.target = self
         screenshotPopup.action = #selector(shortcutChanged)
         contentView.addSubview(screenshotPopup)
         self.screenshotPopup = screenshotPopup
 
-        addLabel("输入翻译快捷键", at: NSPoint(x: 28, y: 342), to: contentView)
-        let inputTranslationPopup = makeShortcutPopup(frame: NSRect(x: 180, y: 336, width: 280, height: 32))
+        addLabel("输入翻译快捷键", at: NSPoint(x: 28, y: 290), to: contentView)
+        let inputTranslationPopup = makeShortcutPopup(frame: NSRect(x: 180, y: 284, width: 280, height: 32))
         inputTranslationPopup.target = self
         inputTranslationPopup.action = #selector(shortcutChanged)
         contentView.addSubview(inputTranslationPopup)
         self.inputTranslationPopup = inputTranslationPopup
 
-        addSeparator(at: 312, to: contentView)
-        addSectionLabel("翻译引擎", at: NSPoint(x: 28, y: 282), to: contentView)
+        addSeparator(at: 260, to: contentView)
+        addSectionLabel("LM Studio", at: NSPoint(x: 28, y: 230), to: contentView)
 
-        addLabel("模式", at: NSPoint(x: 28, y: 244), to: contentView)
-        let translationEnginePopup = makeTranslationEnginePopup(frame: NSRect(x: 180, y: 238, width: 280, height: 32))
-        translationEnginePopup.target = self
-        translationEnginePopup.action = #selector(translationSettingsChanged)
-        contentView.addSubview(translationEnginePopup)
-        self.translationEnginePopup = translationEnginePopup
-
-        addLabel("Base URL", at: NSPoint(x: 28, y: 202), to: contentView)
-        let baseURLField = makeTextField(frame: NSRect(x: 180, y: 198, width: 280, height: 24))
+        addLabel("Base URL", at: NSPoint(x: 28, y: 192), to: contentView)
+        let baseURLField = makeTextField(frame: NSRect(x: 180, y: 188, width: 280, height: 24))
         contentView.addSubview(baseURLField)
         self.baseURLField = baseURLField
 
-        addLabel("Model", at: NSPoint(x: 28, y: 164), to: contentView)
-        let modelPopup = NSPopUpButton(frame: NSRect(x: 180, y: 156, width: 280, height: 32), pullsDown: false)
-        modelPopup.target = self
-        modelPopup.action = #selector(translationSettingsChanged)
-        contentView.addSubview(modelPopup)
-        self.modelPopup = modelPopup
+        addLabel("Model", at: NSPoint(x: 28, y: 154), to: contentView)
+        let modelField = makeTextField(frame: NSRect(x: 180, y: 150, width: 280, height: 24))
+        contentView.addSubview(modelField)
+        self.modelField = modelField
 
-        addLabel("API Key", at: NSPoint(x: 28, y: 126), to: contentView)
-        let apiKeyField = NSSecureTextField(frame: NSRect(x: 180, y: 122, width: 280, height: 24))
+        addLabel("API Key", at: NSPoint(x: 28, y: 116), to: contentView)
+        let apiKeyField = NSSecureTextField(frame: NSRect(x: 180, y: 112, width: 280, height: 24))
         apiKeyField.delegate = self
         apiKeyField.target = self
         apiKeyField.action = #selector(translationSettingsChanged)
         contentView.addSubview(apiKeyField)
         self.apiKeyField = apiKeyField
 
-        addLabel("超时（秒）", at: NSPoint(x: 28, y: 88), to: contentView)
-        let timeoutField = makeTextField(frame: NSRect(x: 180, y: 84, width: 84, height: 24))
+        addLabel("超时（秒）", at: NSPoint(x: 28, y: 78), to: contentView)
+        let timeoutField = makeTextField(frame: NSRect(x: 180, y: 74, width: 84, height: 24))
         contentView.addSubview(timeoutField)
         self.timeoutField = timeoutField
-
-        let fallbackCheckbox = NSButton(checkboxWithTitle: "本地 AI 失败时使用 Apple 机翻备用", target: self, action: #selector(translationSettingsChanged))
-        fallbackCheckbox.frame = NSRect(x: 276, y: 84, width: 220, height: 24)
-        contentView.addSubview(fallbackCheckbox)
-        self.fallbackCheckbox = fallbackCheckbox
 
         addSeparator(at: 62, to: contentView)
         let loginItemCheckbox = NSButton(checkboxWithTitle: "开机启动", target: self, action: #selector(launchAtLoginChanged))
@@ -165,16 +149,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTextFieldDel
         return popup
     }
 
-    private func makeTranslationEnginePopup(frame: NSRect) -> NSPopUpButton {
-        let popup = NSPopUpButton(frame: frame, pullsDown: false)
-        for preference in TranslationEnginePreference.allCases {
-            let item = NSMenuItem(title: preference.title, action: nil, keyEquivalent: "")
-            item.representedObject = preference.rawValue
-            popup.menu?.addItem(item)
-        }
-        return popup
-    }
-
     private func makeTextField(frame: NSRect) -> NSTextField {
         let field = NSTextField(frame: frame)
         field.delegate = self
@@ -187,36 +161,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTextFieldDel
         select(settings.translateShortcut, in: translatePopup)
         select(settings.screenshotShortcut, in: screenshotPopup)
         select(settings.inputTranslationShortcut, in: inputTranslationPopup)
-        select(settings.translationEngine, in: translationEnginePopup)
         baseURLField?.stringValue = settings.localAIBaseURL
-        refreshModelPopup()
+        modelField?.stringValue = settings.localAIModel
         apiKeyField?.stringValue = settings.localAIAPIKey
         timeoutField?.stringValue = String(Int(settings.localAITimeout))
-        fallbackCheckbox?.state = settings.appleTranslationFallbackEnabled ? .on : .off
         loginItemCheckbox?.state = LaunchAtLogin.isEnabled ? .on : .off
-    }
-
-    private func refreshModelPopup() {
-        guard let modelPopup else { return }
-
-        let savedModel = settings.localAIModel
-        var models = OMLXModelStore.availableModels()
-        if !savedModel.isEmpty, !models.contains(savedModel) {
-            models.insert(savedModel, at: 0)
-        }
-        if models.isEmpty {
-            models = [savedModel.isEmpty ? "gemma-4-e4b-it-4bit" : savedModel]
-        }
-
-        modelPopup.removeAllItems()
-        for model in models {
-            modelPopup.addItem(withTitle: model)
-            modelPopup.lastItem?.representedObject = model
-        }
-
-        let selectedModel = models.contains(savedModel) ? savedModel : models[0]
-        selectModel(selectedModel)
-        settings.localAIModel = selectedModel
     }
 
     private func select(_ preset: ShortcutPreset, in popup: NSPopUpButton?) {
@@ -229,29 +178,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTextFieldDel
     private func selectedPreset(in popup: NSPopUpButton?) -> ShortcutPreset? {
         guard let rawValue = popup?.selectedItem?.representedObject as? String else { return nil }
         return ShortcutPreset(rawValue: rawValue)
-    }
-
-    private func select(_ preference: TranslationEnginePreference, in popup: NSPopUpButton?) {
-        guard let popup,
-              let item = popup.itemArray.first(where: { $0.representedObject as? String == preference.rawValue })
-        else { return }
-        popup.select(item)
-    }
-
-    private func selectedTranslationEngine() -> TranslationEnginePreference? {
-        guard let rawValue = translationEnginePopup?.selectedItem?.representedObject as? String else { return nil }
-        return TranslationEnginePreference(rawValue: rawValue)
-    }
-
-    private func selectModel(_ model: String) {
-        guard let modelPopup,
-              let item = modelPopup.itemArray.first(where: { $0.representedObject as? String == model })
-        else { return }
-        modelPopup.select(item)
-    }
-
-    private func selectedModel() -> String {
-        modelPopup?.selectedItem?.representedObject as? String ?? settings.localAIModel
     }
 
     @objc private func shortcutChanged() {
@@ -277,19 +203,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate, NSTextFieldDel
     }
 
     @objc private func translationSettingsChanged() {
-        guard let translationEngine = selectedTranslationEngine() else {
-            refreshControls()
-            return
-        }
-
-        settings.translationEngine = translationEngine
         settings.localAIBaseURL = baseURLField?.stringValue ?? ""
-        settings.localAIModel = selectedModel()
+        settings.localAIModel = modelField?.stringValue ?? ""
         settings.localAIAPIKey = apiKeyField?.stringValue ?? ""
 
         let timeout = TimeInterval(timeoutField?.stringValue ?? "") ?? 20
         settings.localAITimeout = timeout
-        settings.appleTranslationFallbackEnabled = fallbackCheckbox?.state == .on
     }
 
     func controlTextDidEndEditing(_ obj: Notification) {

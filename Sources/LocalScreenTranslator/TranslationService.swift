@@ -26,48 +26,22 @@ enum TranslationDirection {
 @MainActor
 final class TranslationRouter {
     private let settings: AppSettings
-    private let englishToChineseApple: TranslationCoordinator
-    private let chineseToEnglishApple: TranslationCoordinator
-    private let localAIService = OMLXTranslationService()
+    private let localAIService = LocalAITranslationService()
 
-    init(
-        settings: AppSettings,
-        englishToChineseApple: TranslationCoordinator,
-        chineseToEnglishApple: TranslationCoordinator
-    ) {
+    init(settings: AppSettings) {
         self.settings = settings
-        self.englishToChineseApple = englishToChineseApple
-        self.chineseToEnglishApple = chineseToEnglishApple
     }
 
     func translate(_ texts: [String], direction: TranslationDirection) async throws -> [String] {
-        switch settings.translationEngine {
-        case .appleTranslation:
-            return try await translateWithApple(texts, direction: direction)
-        case .localAIWithAppleFallback:
-            do {
-                return try await localAIService.translate(texts, direction: direction, settings: settings)
-            } catch {
-                guard settings.appleTranslationFallbackEnabled else {
-                    throw TranslationFailure(message: "本地 AI 翻译失败：\(error.localizedDescription)")
-                }
-
-                do {
-                    return try await translateWithApple(texts, direction: direction)
-                } catch {
-                    throw TranslationFailure(message: "本地 AI 翻译失败，备用 Apple 机翻也失败：\(error.localizedDescription)")
-                }
-            }
+        do {
+            return try await localAIService.translate(texts, direction: direction, settings: settings)
+        } catch {
+            throw TranslationFailure(message: "LM Studio 翻译失败：\(error.localizedDescription)")
         }
-    }
-
-    private func translateWithApple(_ texts: [String], direction: TranslationDirection) async throws -> [String] {
-        let coordinator = direction == .chineseToEnglish ? chineseToEnglishApple : englishToChineseApple
-        return try await coordinator.translate(texts)
     }
 }
 
-final class OMLXTranslationService {
+final class LocalAITranslationService {
     func translate(
         _ texts: [String],
         direction: TranslationDirection,
@@ -213,6 +187,14 @@ final class OMLXTranslationService {
         }
 
         return results
+    }
+}
+
+struct TranslationFailure: LocalizedError {
+    let message: String
+
+    var errorDescription: String? {
+        message
     }
 }
 

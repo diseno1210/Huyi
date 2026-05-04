@@ -6,28 +6,18 @@ import Foundation
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusController: StatusBarController!
     private var hotKeyController: HotKeyController!
-    private let translationCoordinator = TranslationCoordinator()
-    private let reverseTranslationCoordinator = TranslationCoordinator(sourceIdentifier: "zh-Hans", targetIdentifier: "en")
     private var translationRouter: TranslationRouter!
     private let ocrService = OCRService()
     private let screenCaptureService = ScreenCaptureService()
     private let overlayController = TranslationOverlayController()
     private let pinnedImageController = PinnedImageController()
     private let appSettings = AppSettings()
-    private var translationHostWindow: TranslationHostWindow!
-    private var reverseTranslationHostWindow: TranslationHostWindow!
     private var screenshotController: ScreenshotController!
     private var settingsWindowController: SettingsWindowController!
     private var inputTranslationController: InputTranslationController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        translationHostWindow = TranslationHostWindow(coordinator: translationCoordinator)
-        reverseTranslationHostWindow = TranslationHostWindow(coordinator: reverseTranslationCoordinator)
-        translationRouter = TranslationRouter(
-            settings: appSettings,
-            englishToChineseApple: translationCoordinator,
-            chineseToEnglishApple: reverseTranslationCoordinator
-        )
+        translationRouter = TranslationRouter(settings: appSettings)
         screenshotController = ScreenshotController(
             screenCaptureService: screenCaptureService,
             ocrService: ocrService,

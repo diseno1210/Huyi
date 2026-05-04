@@ -19,8 +19,6 @@ let package = Package(
                 .linkedFramework("CoreGraphics"),
                 .linkedFramework("ScreenCaptureKit"),
                 .linkedFramework("ServiceManagement"),
-                .linkedFramework("SwiftUI"),
-                .linkedFramework("Translation"),
                 .linkedFramework("Vision")
             ]
         )

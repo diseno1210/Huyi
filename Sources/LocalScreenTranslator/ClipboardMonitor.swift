@@ -4,7 +4,7 @@ import Foundation
 final class ClipboardMonitor {
     var isEnabled = true
 
-    private let translator: TranslationCoordinator
+    private let translator: TranslationRouter
     private let popupController: ClipboardPopupController
     private let pasteboard = NSPasteboard.general
     private var timer: Timer?
@@ -12,7 +12,7 @@ final class ClipboardMonitor {
     private var lastText = ""
     private var isTranslating = false
 
-    init(translator: TranslationCoordinator, popupController: ClipboardPopupController) {
+    init(translator: TranslationRouter, popupController: ClipboardPopupController) {
         self.translator = translator
         self.popupController = popupController
         self.lastChangeCount = pasteboard.changeCount
@@ -39,7 +39,7 @@ final class ClipboardMonitor {
             isTranslating = true
             defer { isTranslating = false }
             do {
-                let translated = try await translator.translate([text]).first ?? ""
+                let translated = try await translator.translate([text], direction: .englishToChinese).first ?? ""
                 popupController.show(source: text, translation: translated)
             } catch {
                 popupController.show(source: text, translation: error.localizedDescription)
