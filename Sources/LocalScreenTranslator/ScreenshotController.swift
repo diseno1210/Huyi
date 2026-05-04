@@ -6,7 +6,7 @@ final class ScreenshotController {
     private let screenCaptureService: ScreenCaptureService
     private let ocrService: OCRService
     private let pinnedImageController: PinnedImageController
-    private let translationCoordinator: TranslationCoordinator
+    private let translationRouter: TranslationRouter
     private let overlayController: TranslationOverlayController
     private var previewControllers: [UUID: ScreenshotPreviewController] = [:]
     private var textPanel: OCRTextPanelController?
@@ -15,13 +15,13 @@ final class ScreenshotController {
         screenCaptureService: ScreenCaptureService,
         ocrService: OCRService,
         pinnedImageController: PinnedImageController,
-        translationCoordinator: TranslationCoordinator,
+        translationRouter: TranslationRouter,
         overlayController: TranslationOverlayController
     ) {
         self.screenCaptureService = screenCaptureService
         self.ocrService = ocrService
         self.pinnedImageController = pinnedImageController
-        self.translationCoordinator = translationCoordinator
+        self.translationRouter = translationRouter
         self.overlayController = overlayController
     }
 
@@ -138,7 +138,7 @@ final class ScreenshotController {
             return
         }
 
-        let translations = try await translationCoordinator.translate(lines.map(\.text))
+        let translations = try await translationRouter.translate(lines.map(\.text), direction: .englishToChinese)
         let items = zip(lines, translations).map { line, translated in
             TranslationOverlayItem(sourceText: line.text, targetText: translated, rect: line.rect)
         }

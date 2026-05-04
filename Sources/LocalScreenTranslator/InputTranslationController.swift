@@ -2,8 +2,7 @@ import AppKit
 
 @MainActor
 final class InputTranslationController: NSObject, NSWindowDelegate, NSTextViewDelegate {
-    private let englishToChinese: TranslationCoordinator
-    private let chineseToEnglish: TranslationCoordinator
+    private let translationRouter: TranslationRouter
     private var panel: NSPanel?
     private weak var inputView: NSTextView?
     private weak var directionLabel: NSTextField?
@@ -12,9 +11,8 @@ final class InputTranslationController: NSObject, NSWindowDelegate, NSTextViewDe
     private var pendingWorkItem: DispatchWorkItem?
     private var eventMonitors: [Any] = []
 
-    init(englishToChinese: TranslationCoordinator, chineseToEnglish: TranslationCoordinator) {
-        self.englishToChinese = englishToChinese
-        self.chineseToEnglish = chineseToEnglish
+    init(translationRouter: TranslationRouter) {
+        self.translationRouter = translationRouter
     }
 
     func toggle() {
@@ -165,8 +163,7 @@ final class InputTranslationController: NSObject, NSWindowDelegate, NSTextViewDe
 
     private func translate(_ text: String, direction: InputTranslationDirection) async {
         do {
-            let coordinator = direction == .chineseToEnglish ? chineseToEnglish : englishToChinese
-            let result = try await coordinator.translate([text]).first ?? ""
+            let result = try await translationRouter.translate([text], direction: direction.translationDirection).first ?? ""
             guard text == inputView?.string.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
             latestResult = result
             directionLabel?.stringValue = direction.statusText
@@ -232,6 +229,15 @@ private enum InputTranslationDirection {
             "正在翻译为中文…"
         case .chineseToEnglish:
             "Translating to English…"
+        }
+    }
+
+    var translationDirection: TranslationDirection {
+        switch self {
+        case .englishToChinese:
+            .englishToChinese
+        case .chineseToEnglish:
+            .chineseToEnglish
         }
     }
 }

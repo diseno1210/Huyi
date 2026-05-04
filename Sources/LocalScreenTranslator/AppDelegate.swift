@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotKeyController: HotKeyController!
     private let translationCoordinator = TranslationCoordinator()
     private let reverseTranslationCoordinator = TranslationCoordinator(sourceIdentifier: "zh-Hans", targetIdentifier: "en")
+    private var translationRouter: TranslationRouter!
     private let ocrService = OCRService()
     private let screenCaptureService = ScreenCaptureService()
     private let overlayController = TranslationOverlayController()
@@ -22,11 +23,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         translationHostWindow = TranslationHostWindow(coordinator: translationCoordinator)
         reverseTranslationHostWindow = TranslationHostWindow(coordinator: reverseTranslationCoordinator)
+        translationRouter = TranslationRouter(
+            settings: appSettings,
+            englishToChineseApple: translationCoordinator,
+            chineseToEnglishApple: reverseTranslationCoordinator
+        )
         screenshotController = ScreenshotController(
             screenCaptureService: screenCaptureService,
             ocrService: ocrService,
             pinnedImageController: pinnedImageController,
-            translationCoordinator: translationCoordinator,
+            translationRouter: translationRouter,
             overlayController: overlayController
         )
 
@@ -34,8 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.configureHotKeys()
         }
         inputTranslationController = InputTranslationController(
-            englishToChinese: translationCoordinator,
-            chineseToEnglish: reverseTranslationCoordinator
+            translationRouter: translationRouter
         )
 
         statusController = StatusBarController(
@@ -137,7 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
 
-            let translations = try await translationCoordinator.translate(lines.map(\.text))
+            let translations = try await translationRouter.translate(lines.map(\.text), direction: .englishToChinese)
             let items = zip(lines, translations).map { line, translated in
                 TranslationOverlayItem(sourceText: line.text, targetText: translated, rect: line.rect)
             }

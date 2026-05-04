@@ -10,6 +10,12 @@ CONTENTS_DIR="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS_DIR/MacOS"
 RESOURCES_DIR="$CONTENTS_DIR/Resources"
 ICONSET_DIR="$ROOT_DIR/.build/$ICON_NAME.iconset"
+DEFAULT_SDKROOT="/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk"
+
+export CLANG_MODULE_CACHE_PATH="${CLANG_MODULE_CACHE_PATH:-/tmp/lst-module-cache}"
+if [[ -z "${SDKROOT:-}" && -d "$DEFAULT_SDKROOT" ]]; then
+    export SDKROOT="$DEFAULT_SDKROOT"
+fi
 
 echo "Building release binary..."
 swift build -c release --package-path "$ROOT_DIR"
@@ -44,9 +50,9 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>0.2.0</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>2</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.2</string>
     <key>LSUIElement</key>

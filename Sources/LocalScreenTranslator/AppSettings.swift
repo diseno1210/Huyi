@@ -1,6 +1,43 @@
 import Carbon
 import Foundation
 
+enum TranslationEnginePreference: String, CaseIterable {
+    case localAIWithAppleFallback
+    case appleTranslation
+
+    var title: String {
+        switch self {
+        case .localAIWithAppleFallback:
+            "本地 AI 优先"
+        case .appleTranslation:
+            "Apple 机翻"
+        }
+    }
+}
+
+enum OMLXModelStore {
+    static let defaultModelsDirectory = "/Users/trivoid/.omlx/models"
+
+    static func availableModels(in modelsDirectory: String = defaultModelsDirectory) -> [String] {
+        let url = URL(fileURLWithPath: modelsDirectory, isDirectory: true)
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: url,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        return contents.compactMap { modelURL in
+            guard (try? modelURL.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else {
+                return nil
+            }
+            return modelURL.lastPathComponent
+        }
+        .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+    }
+}
+
 enum ShortcutPreset: String, CaseIterable {
     case controlShiftA
     case controlShiftT
@@ -70,6 +107,12 @@ final class AppSettings {
         static let translateShortcut = "translateShortcutPreset"
         static let screenshotShortcut = "screenshotShortcutPreset"
         static let inputTranslationShortcut = "inputTranslationShortcutPreset"
+        static let translationEngine = "translationEnginePreference"
+        static let localAIBaseURL = "localAIBaseURL"
+        static let localAIModel = "localAIModel"
+        static let localAIAPIKey = "localAIAPIKey"
+        static let localAITimeout = "localAITimeout"
+        static let appleTranslationFallbackEnabled = "appleTranslationFallbackEnabled"
     }
 
     private let defaults: UserDefaults
@@ -102,6 +145,73 @@ final class AppSettings {
         }
         set {
             defaults.set(newValue.rawValue, forKey: Key.inputTranslationShortcut)
+        }
+    }
+
+    var translationEngine: TranslationEnginePreference {
+        get {
+            guard let rawValue = defaults.string(forKey: Key.translationEngine),
+                  let preference = TranslationEnginePreference(rawValue: rawValue)
+            else {
+                return .localAIWithAppleFallback
+            }
+            return preference
+        }
+        set {
+            defaults.set(newValue.rawValue, forKey: Key.translationEngine)
+        }
+    }
+
+    var localAIBaseURL: String {
+        get {
+            defaults.string(forKey: Key.localAIBaseURL) ?? "http://127.0.0.1:8000/v1"
+        }
+        set {
+            defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.localAIBaseURL)
+        }
+    }
+
+    var localAIModel: String {
+        get {
+            if let savedModel = defaults.string(forKey: Key.localAIModel),
+               !savedModel.isEmpty {
+                return savedModel
+            }
+            return OMLXModelStore.availableModels().first ?? "gemma-4-e4b-it-4bit"
+        }
+        set {
+            defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.localAIModel)
+        }
+    }
+
+    var localAIAPIKey: String {
+        get {
+            defaults.string(forKey: Key.localAIAPIKey) ?? ""
+        }
+        set {
+            defaults.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.localAIAPIKey)
+        }
+    }
+
+    var localAITimeout: TimeInterval {
+        get {
+            let value = defaults.double(forKey: Key.localAITimeout)
+            return value > 0 ? value : 20
+        }
+        set {
+            defaults.set(max(1, newValue), forKey: Key.localAITimeout)
+        }
+    }
+
+    var appleTranslationFallbackEnabled: Bool {
+        get {
+            if defaults.object(forKey: Key.appleTranslationFallbackEnabled) == nil {
+                return true
+            }
+            return defaults.bool(forKey: Key.appleTranslationFallbackEnabled)
+        }
+        set {
+            defaults.set(newValue, forKey: Key.appleTranslationFallbackEnabled)
         }
     }
 
