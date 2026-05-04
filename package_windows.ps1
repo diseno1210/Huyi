@@ -5,17 +5,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Root = if (Test-Path (Join-Path $ScriptDir "windows/Huyi.Windows/Huyi.Windows.csproj")) {
-    $ScriptDir
-} elseif (Test-Path (Join-Path (Split-Path -Parent $ScriptDir) "windows/Huyi.Windows/Huyi.Windows.csproj")) {
-    Split-Path -Parent $ScriptDir
-} else {
-    throw "找不到 windows/Huyi.Windows/Huyi.Windows.csproj。请在虎译项目根目录运行，或保留 scripts/package_windows.ps1 的相对位置。"
+$Script = Join-Path $PSScriptRoot "scripts/package_windows.ps1"
+if (Test-Path $Script) {
+    & $Script -Configuration $Configuration -Runtime $Runtime
+    exit $LASTEXITCODE
 }
-$Project = Join-Path $Root "windows/Huyi.Windows/Huyi.Windows.csproj"
-$PublishDir = Join-Path $Root "dist/Huyi-Windows-Portable"
-$ZipPath = Join-Path $Root "dist/Huyi-Windows-Portable.zip"
+
+$Project = Join-Path $PSScriptRoot "windows/Huyi.Windows/Huyi.Windows.csproj"
+if (-not (Test-Path $Project)) {
+    throw "找不到 windows/Huyi.Windows/Huyi.Windows.csproj。请确认 Huyi.Windows 文件夹和 package_windows.ps1 在同一个虎译项目目录下。"
+}
+
+$PublishDir = Join-Path $PSScriptRoot "dist/Huyi-Windows-Portable"
+$ZipPath = Join-Path $PSScriptRoot "dist/Huyi-Windows-Portable.zip"
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     throw "dotnet SDK 未安装。请在 Windows 10/11 x64 机器上安装 .NET 8 SDK 后再运行。"
