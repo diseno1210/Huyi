@@ -17,6 +17,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var inputTranslationController: InputTranslationController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        installMainMenu()
+
         translationRouter = TranslationRouter(settings: appSettings)
         screenshotController = ScreenshotController(
             screenCaptureService: screenCaptureService,
@@ -109,19 +111,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         overlayController.clear()
-        SelectionWindowController.beginSelection(instruction: "拖拽选择要翻译的区域，按 Esc 取消") { [weak self] rect in
-            guard let self else { return }
-            Task { @MainActor in
-                await self.processSelection(rect)
+        Task { @MainActor in
+            let snapshot = try? await screenCaptureService.captureSnapshot()
+            SelectionWindowController.beginSelection(
+                instruction: "拖拽选择要翻译的区域，按 Esc 取消",
+                backgroundImage: snapshot?.displayImage
+            ) { [weak self] rect in
+                guard let self else { return }
+                Task { @MainActor in
+                    await self.processSelection(rect, snapshot: snapshot)
+                }
             }
         }
     }
 
     @MainActor
-    private func processSelection(_ rect: CGRect) async {
+    private func processSelection(_ rect: CGRect, snapshot: ScreenSnapshot?) async {
         do {
-            try await Task.sleep(nanoseconds: 120_000_000)
-            guard let image = try await screenCaptureService.capture(rect: rect) else {
+            let image: CGImage?
+            if let croppedImage = snapshot?.crop(appKitRect: rect) {
+                image = croppedImage
+            } else {
+                try await Task.sleep(nanoseconds: 120_000_000)
+                image = try await screenCaptureService.capture(rect: rect)
+            }
+
+            guard let image else {
                 showAlert(title: "截图失败", message: "无法截取所选屏幕区域。")
                 return
             }
@@ -140,6 +155,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             showAlert(title: "翻译失败", message: error.localizedDescription)
         }
+    }
+
+    private func installMainMenu() {
+        let mainMenu = NSMenu()
+
+        let appMenuItem = NSMenuItem()
+        mainMenu.addItem(appMenuItem)
+        let appMenu = NSMenu()
+        appMenuItem.submenu = appMenu
+        let quitItem = NSMenuItem(title: "退出虎译", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quitItem.target = NSApplication.shared
+        appMenu.addItem(quitItem)
+
+        let editMenuItem = NSMenuItem()
+        mainMenu.addItem(editMenuItem)
+        let editMenu = NSMenu(title: "编辑")
+        editMenuItem.submenu = editMenu
+        editMenu.addItem(NSMenuItem(title: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x"))
+        editMenu.addItem(NSMenuItem(title: "复制", action: #selector(NSText.copy(_:)), keyEquivalent: "c"))
+        editMenu.addItem(NSMenuItem(title: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v"))
+        editMenu.addItem(NSMenuItem(title: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
+
+        NSApplication.shared.mainMenu = mainMenu
     }
 
     private func showAlert(title: String, message: String) {

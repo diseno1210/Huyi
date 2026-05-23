@@ -109,9 +109,10 @@ final class InputTranslationController: NSObject, NSWindowDelegate, NSTextViewDe
             y: resultY,
             width: size.width - padding * 2,
             height: resultHeight
-        ))
+        ), copiesAllTextWhenNoSelection: true)
         let resultTextView = resultScroll.documentView as? NSTextView
         resultTextView?.isEditable = false
+        resultTextView?.isSelectable = true
         resultTextView?.string = "请输入中文或英文。"
         self.resultView = resultTextView
         contentView.addSubview(resultScroll)
@@ -124,16 +125,18 @@ final class InputTranslationController: NSObject, NSWindowDelegate, NSTextViewDe
         return contentView
     }
 
-    private func makeTextScroll(frame: NSRect) -> NSScrollView {
+    private func makeTextScroll(frame: NSRect, copiesAllTextWhenNoSelection: Bool = false) -> NSScrollView {
         let scrollView = NSScrollView(frame: frame)
         scrollView.autoresizingMask = [.width, .height]
         scrollView.hasVerticalScroller = true
         scrollView.borderType = .bezelBorder
 
-        let textView = NSTextView(frame: NSRect(origin: .zero, size: frame.size))
+        let textView = ShortcutTextView(frame: NSRect(origin: .zero, size: frame.size))
         textView.autoresizingMask = [.width, .height]
         textView.font = NSFont.systemFont(ofSize: 15)
         textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.allowsUndo = true
+        textView.copiesAllTextWhenNoSelection = copiesAllTextWhenNoSelection
         scrollView.documentView = textView
         return scrollView
     }
@@ -201,6 +204,57 @@ final class InputTranslationController: NSObject, NSWindowDelegate, NSTextViewDe
         }) {
             eventMonitors.append(globalMonitor)
         }
+    }
+}
+
+private final class ShortcutTextView: NSTextView {
+    var copiesAllTextWhenNoSelection = false
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard event.type == .keyDown,
+              isPlainCommand(event),
+              let key = event.charactersIgnoringModifiers?.lowercased() else {
+            return super.performKeyEquivalent(with: event)
+        }
+
+        switch key {
+        case "v" where isEditable:
+            paste(nil)
+            return true
+        case "c":
+            return copySelectionOrAllText()
+        case "x" where isEditable:
+            cut(nil)
+            return true
+        case "a":
+            selectAll(nil)
+            return true
+        default:
+            return super.performKeyEquivalent(with: event)
+        }
+    }
+
+    private func isPlainCommand(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags
+            .intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .numericPad, .function])
+        return flags == .command
+    }
+
+    private func copySelectionOrAllText() -> Bool {
+        let originalRange = selectedRange()
+        if originalRange.length == 0 {
+            guard copiesAllTextWhenNoSelection, !string.isEmpty else {
+                return false
+            }
+            setSelectedRange(NSRange(location: 0, length: (string as NSString).length))
+            copy(nil)
+            setSelectedRange(originalRange)
+            return true
+        }
+
+        copy(nil)
+        return true
     }
 }
 

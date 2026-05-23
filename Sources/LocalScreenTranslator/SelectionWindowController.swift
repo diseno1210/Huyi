@@ -27,12 +27,14 @@ final class SelectionWindowController {
         instruction: String = "拖拽选择区域，按 Esc 取消",
         candidateRects: [CGRect] = [],
         allowsAdjustment: Bool = false,
+        backgroundImage: NSImage? = nil,
         completion: @escaping (CGRect) -> Void
     ) {
         beginSelection(
             instruction: instruction,
             candidateRects: candidateRects,
             allowsAdjustment: allowsAdjustment,
+            backgroundImage: backgroundImage,
             showsActionToolbar: false
         ) { _, rect in
             completion(rect)
@@ -43,16 +45,27 @@ final class SelectionWindowController {
         instruction: String = "拖拽选择区域，按 Esc 取消",
         candidateRects: [CGRect] = [],
         allowsAdjustment: Bool = false,
+        backgroundImage: NSImage? = nil,
         showsActionToolbar: Bool,
         completion: @escaping (SelectionAction, CGRect) -> Void
     ) {
         activeController?.cancel()
         let controller = SelectionWindowController(instruction: instruction, completion: completion)
         activeController = controller
-        controller.show(candidateRects: candidateRects, allowsAdjustment: allowsAdjustment, showsActionToolbar: showsActionToolbar)
+        controller.show(
+            candidateRects: candidateRects,
+            allowsAdjustment: allowsAdjustment,
+            backgroundImage: backgroundImage,
+            showsActionToolbar: showsActionToolbar
+        )
     }
 
-    private func show(candidateRects: [CGRect], allowsAdjustment: Bool, showsActionToolbar: Bool) {
+    private func show(
+        candidateRects: [CGRect],
+        allowsAdjustment: Bool,
+        backgroundImage: NSImage?,
+        showsActionToolbar: Bool
+    ) {
         let frame = NSScreen.allScreensFrame
         let window = SelectionWindow(
             contentRect: frame,
@@ -67,6 +80,7 @@ final class SelectionWindowController {
                 .map { $0.offsetBy(dx: -frame.minX, dy: -frame.minY) }
                 .filter { $0.width >= 8 && $0.height >= 8 },
             allowsAdjustment: allowsAdjustment,
+            backgroundImage: backgroundImage,
             showsActionToolbar: showsActionToolbar
         )
         view.onCancel = { [weak self] in self?.cancel() }
@@ -123,6 +137,7 @@ private final class SelectionView: NSView {
     private let instruction: String
     private let candidates: [SelectionCandidate]
     private let allowsAdjustment: Bool
+    private let backgroundImage: NSImage?
     private let showsActionToolbar: Bool
     private var startPoint: CGPoint?
     private var currentPoint: CGPoint?
@@ -140,11 +155,13 @@ private final class SelectionView: NSView {
         instruction: String,
         candidates: [CGRect],
         allowsAdjustment: Bool,
+        backgroundImage: NSImage?,
         showsActionToolbar: Bool
     ) {
         self.instruction = instruction
         self.candidates = candidates.map(SelectionCandidate.init(rect:))
         self.allowsAdjustment = allowsAdjustment
+        self.backgroundImage = backgroundImage
         self.showsActionToolbar = showsActionToolbar
         super.init(frame: frameRect)
         if showsActionToolbar {
@@ -167,6 +184,8 @@ private final class SelectionView: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
+        drawFrozenBackground()
+
         guard let rect = activeRect else {
             NSColor.black.withAlphaComponent(0.24).setFill()
             bounds.fill()
@@ -185,6 +204,11 @@ private final class SelectionView: NSView {
         if showsActionToolbar {
             updateActionToolbar(for: rect)
         }
+    }
+
+    private func drawFrozenBackground() {
+        guard let backgroundImage else { return }
+        backgroundImage.draw(in: bounds, from: .zero, operation: .copy, fraction: 1)
     }
 
     override func mouseMoved(with event: NSEvent) {

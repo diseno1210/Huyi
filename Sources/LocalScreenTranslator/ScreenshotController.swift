@@ -37,19 +37,21 @@ final class ScreenshotController {
         }
 
         Task { @MainActor in
-            await beginScreenshotSelection()
+            let snapshot = try? await screenCaptureService.captureSnapshot()
+            await beginScreenshotSelection(snapshot: snapshot)
         }
     }
 
-    private func beginScreenshotSelection() async {
+    private func beginScreenshotSelection(snapshot: ScreenSnapshot?) async {
         SelectionWindowController.beginSelection(
             instruction: "拖拽选择截图区域，调整锚点后点击下方按钮执行操作",
             allowsAdjustment: true,
+            backgroundImage: snapshot?.displayImage,
             showsActionToolbar: true
         ) { [weak self] action, rect in
             guard let self else { return }
             Task { @MainActor in
-                await self.processSelection(rect, action: action)
+                await self.processSelection(rect, action: action, snapshot: snapshot)
             }
         }
     }
@@ -62,10 +64,17 @@ final class ScreenshotController {
         }
     }
 
-    private func processSelection(_ rect: CGRect, action: SelectionAction) async {
+    private func processSelection(_ rect: CGRect, action: SelectionAction, snapshot: ScreenSnapshot?) async {
         do {
-            try await Task.sleep(nanoseconds: 120_000_000)
-            guard let cgImage = try await screenCaptureService.capture(rect: rect) else {
+            let cgImage: CGImage?
+            if let croppedImage = snapshot?.crop(appKitRect: rect) {
+                cgImage = croppedImage
+            } else {
+                try await Task.sleep(nanoseconds: 120_000_000)
+                cgImage = try await screenCaptureService.capture(rect: rect)
+            }
+
+            guard let cgImage else {
                 showAlert(title: "截图失败", message: "无法截取所选屏幕区域。")
                 return
             }
