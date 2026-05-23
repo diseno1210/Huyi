@@ -6,7 +6,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <UseSystemDrawing>true</UseSystemDrawing>
     <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <ImplicitUsings>disable</ImplicitUsings>
     <AssemblyName>Huyi</AssemblyName>
     <RootNamespace>Huyi.Windows</RootNamespace>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>

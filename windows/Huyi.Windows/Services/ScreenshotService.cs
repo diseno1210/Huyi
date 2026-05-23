@@ -1,9 +1,12 @@
+using System;
 using System.Drawing;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Huyi.Windows.Models;
 using Forms = System.Windows.Forms;
 
 namespace Huyi.Windows.Services;
