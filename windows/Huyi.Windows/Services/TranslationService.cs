@@ -28,6 +28,13 @@ public sealed class TranslationService
             return texts.ToArray();
         }
 
+        // A single segment (e.g. the F5 input box) skips the numbered-batch prompt,
+        // which dedicated translation models such as Hunyuan-MT do not follow.
+        if (cleanTexts.Length == 1)
+        {
+            return [await TranslateSingleAsync(cleanTexts[0], direction, settings, cancellationToken)];
+        }
+
         try
         {
             return await TranslateBatchAsync(cleanTexts, direction, settings, cancellationToken);
@@ -70,8 +77,7 @@ public sealed class TranslationService
         CancellationToken cancellationToken)
     {
         var prompt = $"""
-            Translate the following text from {SourceName(direction)} to {TargetName(direction)}.
-            Return only the translated text. Do not add explanations.
+            把下面的文本翻译成{TargetChineseName(direction)}，不要额外解释。
 
             {text}
             """;
@@ -98,7 +104,6 @@ public sealed class TranslationService
         request.Content = new StringContent(JsonSerializer.Serialize(new ChatCompletionRequest(
             settings.LmStudioModel,
             [
-                new ChatMessage("system", "You are a translation engine. Output translated text only."),
                 new ChatMessage("user", prompt)
             ],
             0
@@ -174,6 +179,9 @@ public sealed class TranslationService
 
     private static string TargetName(TranslationDirection direction) =>
         direction == TranslationDirection.EnglishToChinese ? "Simplified Chinese" : "English";
+
+    private static string TargetChineseName(TranslationDirection direction) =>
+        direction == TranslationDirection.EnglishToChinese ? "中文" : "英语";
 
     private sealed record ChatCompletionRequest(string Model, IReadOnlyList<ChatMessage> Messages, double Temperature);
     private sealed record ChatMessage(string Role, string Content);
