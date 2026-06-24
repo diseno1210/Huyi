@@ -35,9 +35,7 @@ public sealed class OcrService
             cancellationToken.ThrowIfCancellationRequested();
             var result = await engine.RecognizeAsync(ToSoftwareBitmap(image));
             var lines = result.Lines
-                .Select(line => new RecognizedLine(
-                    line.Text,
-                    new Rect(line.BoundingRect.X, line.BoundingRect.Y, line.BoundingRect.Width, line.BoundingRect.Height)))
+                .Select(line => new RecognizedLine(line.Text, LineBounds(line)))
                 .Where(line => !string.IsNullOrWhiteSpace(line.Text))
                 .ToList();
 
@@ -57,6 +55,17 @@ public sealed class OcrService
     {
         var lines = await RecognizeLinesAsync(image, mode, cancellationToken);
         return string.Join(Environment.NewLine, lines.Select(line => line.Text));
+    }
+
+    private static Rect LineBounds(OcrLine line)
+    {
+        var bounds = Rect.Empty;
+        foreach (var word in line.Words)
+        {
+            var rect = word.BoundingRect;
+            bounds.Union(new Rect(rect.X, rect.Y, rect.Width, rect.Height));
+        }
+        return bounds;
     }
 
     private static IReadOnlyList<OcrEngine> CreateEngines(OcrMode mode)
