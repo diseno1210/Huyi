@@ -86,14 +86,15 @@ public partial class App : Application
         try
         {
             ClearOverlay();
-            var selection = await SelectAreaAsync("拖拽选择要翻译的区域，按 Esc 取消", showsToolbar: false);
-            if (selection == null || selection.ScreenRect.Width < 2 || selection.ScreenRect.Height < 2)
+            var context = await SelectAreaAsync("拖拽选择要翻译的区域，按 Esc 取消", showsToolbar: false);
+            if (context == null || context.Selection.ScreenRect.Width < 2 || context.Selection.ScreenRect.Height < 2)
             {
                 return;
             }
 
-            var capture = _screenshotService.Capture(selection.ScreenRect);
-            var lines = await _ocrService.RecognizeLinesAsync(capture.Image, OcrMode.English);
+            var screenRect = context.Selection.ScreenRect;
+            var image = _screenshotService.Crop(context.Screenshot, screenRect, context.VirtualBounds);
+            var lines = await _ocrService.RecognizeLinesAsync(image, OcrMode.English);
             if (lines.Count == 0)
             {
                 MessageBox.Show("所选区域没有识别到英文文字。", "未识别到文字", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -107,7 +108,7 @@ public partial class App : Application
             var items = lines.Zip(translations, (line, translated) =>
                 new TranslationOverlayItem(line.Text, translated, line.Bounds)).ToArray();
 
-            _overlay = new OverlayWindow(capture.ScreenRect, items);
+            _overlay = new OverlayWindow(image, screenRect, context.VirtualBounds, items);
             _overlay.Closed += (_, _) => _overlay = null;
             _overlay.Show();
         }
@@ -121,13 +122,16 @@ public partial class App : Application
     {
         try
         {
-            var selection = await SelectAreaAsync("拖拽选择截图区域，调整锚点后点击下方按钮执行操作", showsToolbar: true);
-            if (selection == null || selection.Action == SelectionAction.Cancel)
+            var context = await SelectAreaAsync("拖拽选择截图区域，调整锚点后点击下方按钮执行操作", showsToolbar: true);
+            if (context == null || context.Selection.Action == SelectionAction.Cancel)
             {
                 return;
             }
 
-            var capture = _screenshotService.Capture(selection.ScreenRect);
+            var selection = context.Selection;
+            var capture = new CapturedImage(
+                _screenshotService.Crop(context.Screenshot, selection.ScreenRect, context.VirtualBounds),
+                selection.ScreenRect);
             switch (selection.Action)
             {
                 case SelectionAction.Preview:
@@ -159,13 +163,16 @@ public partial class App : Application
         }
     }
 
-    private async Task<SelectionResult?> SelectAreaAsync(string instruction, bool showsToolbar)
+    private sealed record SelectionContext(SelectionResult Selection, BitmapSource Screenshot, Rect VirtualBounds);
+
+    private async Task<SelectionContext?> SelectAreaAsync(string instruction, bool showsToolbar)
     {
         var screenshot = _screenshotService.CaptureVirtualScreen();
         var bounds = _screenshotService.VirtualScreenBounds();
         var window = new SelectionWindow(screenshot, bounds, instruction, showsToolbar);
         window.Show();
-        return await window.WaitAsync();
+        var selection = await window.WaitAsync();
+        return selection == null ? null : new SelectionContext(selection, screenshot, bounds);
     }
 
     private void ShowPreview(CapturedImage capture, AnnotationTool initialTool = AnnotationTool.None)
