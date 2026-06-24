@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -14,13 +13,11 @@ public sealed class SelectionWindow : Window
 {
     private readonly TaskCompletionSource<SelectionResult?> _completion = new();
     private readonly Rect _virtualBounds;
-    private readonly bool _showsToolbar;
     private readonly SelectionCanvas _canvas;
 
     public SelectionWindow(BitmapSource screenshot, Rect virtualBounds, string instruction, bool showsToolbar)
     {
         _virtualBounds = virtualBounds;
-        _showsToolbar = showsToolbar;
         Left = virtualBounds.Left;
         Top = virtualBounds.Top;
         Width = virtualBounds.Width;
@@ -69,7 +66,7 @@ public sealed class SelectionCanvas : Canvas
     private const double HandleSize = 9;
     private readonly BitmapSource _screenshot;
     private readonly string _instruction;
-    private readonly bool _showsToolbar;
+    private readonly Border? _toolbar;
     private Rect _selection;
     private Point _start;
     private DragMode _dragMode = DragMode.None;
@@ -80,7 +77,6 @@ public sealed class SelectionCanvas : Canvas
     {
         _screenshot = screenshot;
         _instruction = instruction;
-        _showsToolbar = showsToolbar;
         Focusable = true;
         Background = Brushes.Transparent;
         ClipToBounds = true;
@@ -90,11 +86,35 @@ public sealed class SelectionCanvas : Canvas
         MouseRightButtonDown += (_, _) => Completed?.Invoke(this, new SelectionResult(SelectionAction.Cancel, Rect.Empty));
         MouseDown += (_, e) =>
         {
-            if (e.ClickCount == 2 && _selection.Width > 2 && _selection.Height > 2)
+            if (ReferenceEquals(e.OriginalSource, this)
+                && e.ClickCount == 2
+                && _selection.Width > 2
+                && _selection.Height > 2)
             {
                 Completed?.Invoke(this, new SelectionResult(SelectionAction.Copy, _selection));
             }
         };
+
+        if (showsToolbar)
+        {
+            _toolbar = ToolbarChrome.Bar(
+                Chip("识别文字", "OCR 文字识别", SelectionAction.Ocr),
+                Chip("画笔", "画笔标注", SelectionAction.Pen),
+                Chip("箭头", "箭头标注", SelectionAction.Arrow),
+                Chip("钉图", "钉在屏幕上", SelectionAction.Pin),
+                Chip("复制", "复制到剪贴板", SelectionAction.Copy),
+                Chip("保存", "保存为 PNG", SelectionAction.Save),
+                Chip("取消", "取消截图", SelectionAction.Cancel));
+            _toolbar.Visibility = Visibility.Collapsed;
+            Children.Add(_toolbar);
+        }
+    }
+
+    private ToolChip Chip(string text, string tooltip, SelectionAction action)
+    {
+        var chip = new ToolChip(text, tooltip);
+        chip.Click += () => Completed?.Invoke(this, new SelectionResult(action, _selection));
+        return chip;
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -109,10 +129,7 @@ public sealed class SelectionCanvas : Canvas
             dc.Pop();
             dc.DrawRectangle(null, new Pen(Brushes.DodgerBlue, 2), _selection);
             DrawHandles(dc);
-            if (_showsToolbar)
-            {
-                DrawToolbar(dc);
-            }
+            DrawSizeBadge(dc);
         }
 
         var text = new FormattedText(
@@ -130,12 +147,6 @@ public sealed class SelectionCanvas : Canvas
     {
         CaptureMouse();
         var point = e.GetPosition(this);
-        if (_showsToolbar && ToolbarActionAt(point) is { } action)
-        {
-            Completed?.Invoke(this, new SelectionResult(action, _selection));
-            return;
-        }
-
         _start = point;
         _dragMode = HitTestMode(point);
         if (_dragMode == DragMode.None)
@@ -144,6 +155,7 @@ public sealed class SelectionCanvas : Canvas
             _dragMode = DragMode.Create;
         }
         InvalidateVisual();
+        UpdateToolbar();
     }
 
     private void OnMouseMove(object sender, MouseEventArgs e)
@@ -176,6 +188,7 @@ public sealed class SelectionCanvas : Canvas
                 break;
         }
         InvalidateVisual();
+        UpdateToolbar();
     }
 
     private void OnMouseUp(object sender, MouseButtonEventArgs e)
@@ -184,6 +197,33 @@ public sealed class SelectionCanvas : Canvas
         _dragMode = DragMode.None;
         _selection = Clamp(_selection);
         InvalidateVisual();
+        UpdateToolbar();
+    }
+
+    private void UpdateToolbar()
+    {
+        if (_toolbar == null) return;
+        if (_selection.Width <= 2 || _selection.Height <= 2)
+        {
+            _toolbar.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _toolbar.Visibility = Visibility.Visible;
+        _toolbar.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var size = _toolbar.DesiredSize;
+        var left = Math.Clamp(_selection.Left, 8, Math.Max(8, ActualWidth - size.Width - 8));
+        var top = _selection.Bottom + 10;
+        if (top + size.Height > ActualHeight - 8)
+        {
+            top = _selection.Top - size.Height - 10;
+        }
+        if (top < 8)
+        {
+            top = Math.Max(8, Math.Min(ActualHeight - size.Height - 8, _selection.Bottom + 10));
+        }
+        SetLeft(_toolbar, left);
+        SetTop(_toolbar, top);
     }
 
     private DragMode HitTestMode(Point point)
@@ -218,59 +258,21 @@ public sealed class SelectionCanvas : Canvas
         }
     }
 
-    private void DrawToolbar(DrawingContext dc)
+    private void DrawSizeBadge(DrawingContext dc)
     {
-        var buttons = ToolbarButtons();
-        var toolbarWidth = buttons.Count * 42 + 10;
-        var x = Math.Clamp(_selection.Left, 12, Math.Max(12, ActualWidth - toolbarWidth - 12));
-        var y = Math.Min(ActualHeight - 48, _selection.Bottom + 10);
-        if (y + 42 > ActualHeight) y = Math.Max(12, _selection.Top - 52);
-        var background = new Rect(x, y, toolbarWidth, 42);
-        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(235, 30, 30, 30)), null, background, 6, 6);
-
-        for (var i = 0; i < buttons.Count; i++)
-        {
-            var rect = new Rect(x + 5 + i * 42, y + 5, 32, 32);
-            dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(255, 245, 245, 245)), null, rect, 4, 4);
-            var text = new FormattedText(
-                buttons[i].Label,
-                System.Globalization.CultureInfo.CurrentUICulture,
-                FlowDirection.LeftToRight,
-                new Typeface("Segoe UI Symbol"),
-                15,
-                Brushes.Black,
-                VisualTreeHelper.GetDpi(this).PixelsPerDip);
-            dc.DrawText(text, new Point(rect.Left + (rect.Width - text.Width) / 2, rect.Top + 6));
-        }
+        var label = $"{(int)Math.Round(_selection.Width)} × {(int)Math.Round(_selection.Height)}";
+        var text = new FormattedText(
+            label,
+            System.Globalization.CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Microsoft YaHei UI"),
+            12,
+            Brushes.White,
+            VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        var badge = new Rect(_selection.Left, Math.Max(0, _selection.Top - 22), text.Width + 12, 18);
+        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromArgb(220, 30, 30, 30)), null, badge, 4, 4);
+        dc.DrawText(text, new Point(badge.Left + 6, badge.Top + 2));
     }
-
-    private SelectionAction? ToolbarActionAt(Point point)
-    {
-        if (_selection.Width <= 2 || _selection.Height <= 2) return null;
-        var buttons = ToolbarButtons();
-        var toolbarWidth = buttons.Count * 42 + 10;
-        var x = Math.Clamp(_selection.Left, 12, Math.Max(12, ActualWidth - toolbarWidth - 12));
-        var y = Math.Min(ActualHeight - 48, _selection.Bottom + 10);
-        if (y + 42 > ActualHeight) y = Math.Max(12, _selection.Top - 52);
-
-        for (var i = 0; i < buttons.Count; i++)
-        {
-            var rect = new Rect(x + 5 + i * 42, y + 5, 32, 32);
-            if (rect.Contains(point)) return buttons[i].Action;
-        }
-        return null;
-    }
-
-    private static IReadOnlyList<(string Label, SelectionAction Action)> ToolbarButtons() =>
-    [
-        ("文", SelectionAction.Ocr),
-        ("✎", SelectionAction.Pen),
-        ("↗", SelectionAction.Arrow),
-        ("⌖", SelectionAction.Pin),
-        ("⧉", SelectionAction.Copy),
-        ("⇩", SelectionAction.Save),
-        ("×", SelectionAction.Cancel)
-    ];
 
     private Rect Clamp(Rect rect)
     {
